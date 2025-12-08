@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stable Diffusion 3.5 图片生成服务</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .result img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.active {
+            display: block;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+        
+        .info a {
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .info a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Stable Diffusion 3.5</h1>
+        <p class="subtitle">AI 图片生成服务</p>
+        
+        <div class="info">
+            <strong>服务地址:</strong> <span id="serviceUrl">http://localhost:5000</span><br>
+            <strong>API文档:</strong> <a href="/info" target="_blank">查看API信息</a> | 
+            <a href="/health" target="_blank">健康检查</a>
+        </div>
+        
+        <form id="generateForm">
+            <div class="form-group">
+                <label for="prompt">提示词 (Prompt) *</label>
+                <textarea id="prompt" name="prompt" placeholder="例如: a beautiful sunset over the ocean, vibrant colors, peaceful atmosphere" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="negative_prompt">负向提示词 (Negative Prompt)</label>
+                <input type="text" id="negative_prompt" name="negative_prompt" placeholder="例如: blurry, low quality, distorted">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="steps">推理步数</label>
+                    <input type="number" id="steps" name="steps" value="4" min="1" max="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="width">宽度</label>
+                    <input type="number" id="width" name="width" value="512" min="64" max="2048" step="64">
+                </div>
+                
+                <div class="form-group">
+                    <label for="height">高度</label>
+                    <input type="number" id="height" name="height" value="512" min="64" max="2048" step="64">
+                </div>
+            </div>
+            
+            <button type="submit" id="generateBtn">生成图片</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在生成图片，请稍候...</p>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">这可能需要20-30秒</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result"></div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('generateForm');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const error = document.getElementById('error');
+        const generateBtn = document.getElementById('generateBtn');
+        
+        // 获取当前服务地址
+        const serviceUrl = window.location.origin;
+        document.getElementById('serviceUrl').textContent = serviceUrl;
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 重置状态
+            loading.classList.add('active');
+            result.innerHTML = '';
+            error.classList.remove('active');
+            generateBtn.disabled = true;
+            
+            // 获取表单数据
+            const formData = {
+                prompt: document.getElementById('prompt').value,
+                negative_prompt: document.getElementById('negative_prompt').value || null,
+                steps: parseInt(document.getElementById('steps').value),
+                width: parseInt(document.getElementById('width').value),
+                height: parseInt(document.getElementById('height').value)
+            };
+            
+            try {
+                const response = await fetch(`${serviceUrl}/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    // 获取图片blob
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    // 显示图片
+                    result.innerHTML = `
+                        <h3>✅ 生成成功！</h3>
+                        <img src="${imageUrl}" alt="Generated Image">
+                        <p style="margin-top: 15px;">
+                            <a href="${imageUrl}" download="generated_image.png" style="color: #667eea; text-decoration: none; font-weight: 600;">📥 下载图片</a>
+                        </p>
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '生成失败');
+                }
+            } catch (err) {
+                error.textContent = `错误: ${err.message}`;
+                error.classList.add('active');
+            } finally {
+                loading.classList.remove('active');
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+

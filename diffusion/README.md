@@ -29,6 +29,7 @@ Stable Diffusion 3.5 是 Stability AI 于 2024 年 10 月发布的最新文本�
 - ✅ **灵活参数配置**: 可调整推理步数、图像尺寸、随机种子等参数
 - ✅ **GPU/CPU 自动适配**: 自动检测并使用可用设备
 - ✅ **内存优化**: 支持模型 CPU offload，降低显存占用
+- ✅ **HTTP API 服务**: 提供RESTful API接口，支持通过HTTP请求生成图片
 
 ## 环境要求
 
@@ -59,6 +60,109 @@ python -c "import torch; import diffusers; print('安装成功！')"
 ```
 
 ## 使用方法
+
+### HTTP API 服务（推荐）
+
+项目提供了HTTP API服务，可以通过RESTful接口生成图片。
+
+#### 启动服务
+
+```bash
+# 方式1: 使用启动脚本
+conda activate diffusion
+./start_server.sh
+
+# 方式2: 直接运行
+conda activate diffusion
+python app.py --host 0.0.0.0 --port 5000
+```
+
+服务启动后，默认监听 `http://0.0.0.0:5000`
+
+#### API 接口
+
+**1. 健康检查**
+```bash
+GET http://localhost:5000/health
+```
+
+**2. 服务信息**
+```bash
+GET http://localhost:5000/info
+```
+
+**3. 生成图片（POST方式，推荐）**
+```bash
+POST http://localhost:5000/generate
+Content-Type: application/json
+
+{
+  "prompt": "a beautiful sunset over the ocean, vibrant colors",
+  "negative_prompt": "blurry, low quality",
+  "steps": 4,
+  "width": 512,
+  "height": 512,
+  "seed": 42
+}
+```
+
+**4. 生成图片（GET方式，简单测试）**
+```bash
+GET http://localhost:5000/generate?prompt=a%20beautiful%20sunset&steps=4&width=512&height=512
+```
+
+#### 使用示例
+
+**Python 示例:**
+```python
+import requests
+
+# POST方式
+response = requests.post(
+    "http://localhost:5000/generate",
+    json={
+        "prompt": "a cute cat playing with yarn",
+        "steps": 4,
+        "width": 512,
+        "height": 512
+    },
+    timeout=300
+)
+
+if response.status_code == 200:
+    with open("output.png", "wb") as f:
+        f.write(response.content)
+    print("图片已保存")
+```
+
+**curl 示例:**
+```bash
+curl -X POST http://localhost:5000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "a beautiful landscape", "steps": 4, "width": 512, "height": 512}' \
+  --output image.png
+```
+
+**GET方式:**
+```bash
+curl "http://localhost:5000/generate?prompt=a%20beautiful%20sunset&steps=4&width=512&height=512" \
+  --output image.png
+```
+
+#### 图片存储
+
+- 生成的图片自动保存到 `generated_image/` 目录
+- 图片命名格式: `image_000001.png`, `image_000002.png` ... (自动递增)
+- 索引信息保存在 `image_index.json` 文件中
+
+#### 测试API
+
+```bash
+# 运行测试脚本
+python test_api.py
+```
+
+### 命令行使用
 
 ### 基础使用
 
@@ -186,5 +290,8 @@ A:
 
 ## 更新日志
 
-- **2024-12-08**: 初始版本，实现基础推理功能
+- **2024-12-08**: 
+  - 初始版本，实现基础推理功能
+  - 添加HTTP API服务，支持RESTful接口生成图片
+  - 实现图片自动索引管理
 

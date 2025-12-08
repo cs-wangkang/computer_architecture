@@ -37,19 +37,31 @@ class StableDiffusion35Inference:
         self.device = device if device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype = torch.float16 if dtype == "float16" else torch.float32
         
-        # 加载pipeline
+        # 清理GPU缓存
+        if self.device == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        # 加载pipeline，使用低CPU内存模式
         self.pipe = StableDiffusion3Pipeline.from_pretrained(
             model_id,
-            torch_dtype=self.dtype,
-            trust_remote_code=True
+            torch_dtype=self.dtype,  # 使用torch_dtype参数
+            trust_remote_code=True,
+            low_cpu_mem_usage=True  # 启用低CPU内存模式
         )
         
-        # 移动到指定设备
-        if self.device == "cuda":
-            self.pipe = self.pipe.to(self.device)
-            # 启用内存优化（如果可用）
+        # 设备配置和内存优化
+        if self.device == "cuda" and torch.cuda.is_available():
+            # 优先使用CPU offload来节省显存和内存
             if hasattr(self.pipe, 'enable_model_cpu_offload'):
+                print("启用CPU offload以节省内存...")
                 self.pipe.enable_model_cpu_offload()
+            elif hasattr(self.pipe, 'enable_sequential_cpu_offload'):
+                print("启用顺序CPU offload以节省内存...")
+                self.pipe.enable_sequential_cpu_offload()
+            else:
+                # 如果没有offload功能，才将整个模型移到GPU
+                print("将模型加载到GPU...")
+                self.pipe = self.pipe.to(self.device)
         else:
             self.pipe = self.pipe.to(self.device)
         
@@ -103,6 +115,10 @@ class StableDiffusion35Inference:
                 height=height,
                 generator=generator
             ).images[0]
+        
+        # 清理GPU缓存
+        if self.device == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
         
         # 保存图像
         if output_path:
