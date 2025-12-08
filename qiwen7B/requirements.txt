@@ -1,0 +1,10 @@
+torch>=2.0.0
+transformers==4.40.0
+# 注意：vllm 需要 transformers>=4.56.0，与 transformers_stream_generator 不兼容
+# 如果需要使用 vllm，请注释掉 transformers_stream_generator 并升级 transformers
+vllm>=0.2.0
+accelerate>=0.24.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+transformers_stream_generator>=0.0.0
+

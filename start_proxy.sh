@@ -1,0 +1,10 @@
+#!/bin/bash
+
+pkill -f clash-linux
+
+/root/autodl-tmp/clash/clash-linux -d /root/autodl-tmp/clash &
+
+export http_proxy=http://127.0.0.1:7890
+export https_proxy=http://127.0.0.1:7890
+export all_proxy=socks5://127.0.0.1:7891
+

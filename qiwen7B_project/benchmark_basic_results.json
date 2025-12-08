@@ -1,0 +1,12 @@
+{
+  "total_samples": 5,
+  "avg_latency_ms": 2598.1715202331543,
+  "min_latency_ms": 1998.5692501068115,
+  "max_latency_ms": 3420.9144115448,
+  "avg_tokens": 53.6,
+  "throughput_tokens_per_sec": 20.62989282370013,
+  "p50_latency_ms": 2568.91131401062,
+  "p95_latency_ms": 3420.9144115448,
+  "p99_latency_ms": 3420.9144115448,
+  "model_load_time_sec": 15.358824253082275
+}
