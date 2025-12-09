@@ -56,9 +56,12 @@ class Qwen7BVLLMInference:
             )
             raise ImportError(error_msg)
         
+        # 保存模型名称，用于后续加载tokenizer
+        self.model_name = model_name
+        
         print(f"正在加载模型: {model_name} (使用VLLM优化)")
         
-        # 使用VLLM 0.11.2版本，兼容Qwen模型
+        # 使用VLLM 0.10.2版本，兼容Qwen模型
         self.llm = LLM(
             model=model_name,
             tensor_parallel_size=tensor_parallel_size,
@@ -66,6 +69,13 @@ class Qwen7BVLLMInference:
             max_model_len=max_model_len,
             trust_remote_code=trust_remote_code,
             dtype="float16"
+        )
+        
+        # 加载tokenizer用于格式化输入（VLLM的tokenizer可能没有chat_template）
+        from transformers import AutoTokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=True
         )
         
         print("模型加载完成（VLLM优化）")
@@ -86,18 +96,18 @@ class Qwen7BVLLMInference:
             生成的文本
         """
         # 格式化输入（Qwen聊天格式）
-        from transformers import AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.llm.llm_engine.model_config.hf_config.hf_model_name,
-            trust_remote_code=True
-        )
-        
+        # 如果tokenizer有chat_template则使用，否则手动格式化
         messages = [{"role": "user", "content": prompt}]
-        formatted_prompt = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+        
+        if hasattr(self.tokenizer, 'chat_template') and self.tokenizer.chat_template is not None:
+            formatted_prompt = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        else:
+            # 手动格式化Qwen的chatml格式
+            formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
         
         # 设置采样参数
         sampling_params = SamplingParams(
@@ -128,21 +138,21 @@ class Qwen7BVLLMInference:
         Returns:
             生成的文本列表
         """
-        from transformers import AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.llm.llm_engine.model_config.hf_config.hf_model_name,
-            trust_remote_code=True
-        )
-        
         # 格式化所有提示词
         formatted_prompts = []
         for prompt in prompts:
             messages = [{"role": "user", "content": prompt}]
-            formatted_prompt = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
+            
+            if hasattr(self.tokenizer, 'chat_template') and self.tokenizer.chat_template is not None:
+                formatted_prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
+            else:
+                # 手动格式化Qwen的chatml格式
+                formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            
             formatted_prompts.append(formatted_prompt)
         
         # 设置采样参数
